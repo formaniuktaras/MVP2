@@ -1,8 +1,8 @@
-"""Модуль матчінгу між прайсами."""
+"""Модуль гібридного strict/fuzzy матчінгу між прайсами."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict, List, Mapping
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -18,29 +18,38 @@ def _to_float(value: object) -> float | None:
     except (TypeError, ValueError):
         return None
 
+def _supplier_value(row: Mapping[str, Any], key: str) -> Any:
+    """Повертає значення поля постачальника з урахуванням суфікса `_sup`."""
+    if key in row and row[key] not in (None, ""):
+        return row[key]
+    sup_key = f"{key}_sup"
+    return row.get(sup_key)
 
-def score_row(user_row: Dict[str, object], supplier_row: Dict[str, object], cfg: Config) -> float:
+
+def score_row(user_row: Mapping[str, Any], supplier_row: Mapping[str, Any], cfg: Config) -> float:
     """Розраховує комбінований бал для рядка користувача та кандидата."""
     score = 0.0
     weights = cfg.weights
-    if user_row.get("brand_norm") and user_row.get("brand_norm") == supplier_row.get("brand_norm"):
+    user_brand = user_row.get("brand_norm")
+    supplier_brand = _supplier_value(supplier_row, "brand_norm")
+    if user_brand and supplier_brand and user_brand == supplier_brand:
         score += weights.get("brand_exact", 0)
     model_user = user_row.get("model_norm", "")
-    model_supplier = supplier_row.get("model_norm", "")
+    model_supplier = _supplier_value(supplier_row, "model_norm") or ""
     if model_user and model_supplier:
         ratio = fuzz.token_set_ratio(model_user, model_supplier)
         score += ratio / 100.0 * weights.get("model_fuzzy", 0)
     film_user = user_row.get("film_type_norm", "")
-    film_supplier = supplier_row.get("film_type_norm", "")
+    film_supplier = _supplier_value(supplier_row, "film_type_norm") or ""
     if film_user and film_supplier and film_user == film_supplier:
         score += weights.get("film_exact", 0)
     name_user = user_row.get("name", "")
-    name_supplier = supplier_row.get("name", "")
+    name_supplier = _supplier_value(supplier_row, "name") or ""
     if name_user and name_supplier:
         partial = fuzz.partial_ratio(str(name_user), str(name_supplier))
         score += partial / 100.0 * weights.get("name_fuzzy", 0)
     price_user = _to_float(user_row.get("price"))
-    price_supplier = _to_float(supplier_row.get("price"))
+    price_supplier = _to_float(_supplier_value(supplier_row, "price"))
     if price_user and price_supplier and price_user > 0:
         delta = abs(price_user - price_supplier) / price_user
         if delta <= cfg.price_delta:
@@ -99,7 +108,7 @@ def match_user_vs_suppliers(
     near_rows = []
     unmatched_rows = []
 
-    suppliers_grouped = suppliers_df.groupby(["brand_norm_sup", "film_type_norm_sup"])
+    suppliers_grouped = suppliers_df.groupby(["brand_norm_sup", "film_type_norm_sup"], dropna=False)
 
     for _, user_row in unmatched_users.iterrows():
         key = (user_row.get("brand_norm"), user_row.get("film_type_norm"))
@@ -111,10 +120,11 @@ def match_user_vs_suppliers(
         best_score = 0.0
         best_candidate = None
         for _, supplier_row in candidates.iterrows():
-            score = score_row(user_row.to_dict(), supplier_row.to_dict(), cfg)
+            supplier_payload = supplier_row.to_dict()
+            score = score_row(user_row.to_dict(), supplier_payload, cfg)
             if score > best_score:
                 best_score = score
-                best_candidate = supplier_row
+                best_candidate = supplier_payload
         if best_candidate is None or best_score < cfg.near_threshold:
             unmatched_rows.append(user_row)
             continue
@@ -127,6 +137,9 @@ def match_user_vs_suppliers(
 
     near_df = pd.DataFrame(near_rows)
     unmatched_df = pd.DataFrame(unmatched_rows)
+
+    for frame in (exact_df, near_df, unmatched_df):
+        frame.drop(columns=["__user_idx", "__supplier_idx"], errors="ignore", inplace=True)
 
     return {
         "exact": exact_df,

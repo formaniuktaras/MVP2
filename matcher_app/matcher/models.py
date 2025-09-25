@@ -1,4 +1,4 @@
-"""Dataclass-моделі для MatcherApp."""
+"""Дата-класи для опису мапінгів та джерел даних MatcherApp."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

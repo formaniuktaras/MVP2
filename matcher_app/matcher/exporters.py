@@ -1,4 +1,4 @@
-"""Експорт результатів матчінгу у CSV."""
+"""Інструменти експорту результатів MatcherApp у CSV."""
 from __future__ import annotations
 
 from pathlib import Path
