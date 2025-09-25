@@ -43,7 +43,8 @@ run.bat
 
 ```bat
 .venv\Scripts\activate
-pyinstaller --noconfirm --clean --onefile --windowed --name "MatcherApp" main.py
+pyinstaller --noconfirm --clean --onefile --windowed --name "MatcherApp" \
+  --collect-all pandas --collect-all numpy --collect-submodules rapidfuzz main.py
 ```
 
 > 💡 Якщо ви маєте власний ICO-файл (наприклад, `icon.ico`) поруч із `main.py`, додайте параметр `--icon icon.ico`. Скрипт
@@ -61,12 +62,14 @@ build.bat
 
 - Для кастомної іконки створіть або скопіюйте файл `icon.ico` (формат Windows `.ico`) поруч із `main.py`. Якщо файл відсутній або некоректний, PyInstaller використовує стандартну іконку, а `build.bat` додатково попередить про це.
 - Скрипт `build.bat` автоматично перевіряє наявність/якість `icon.ico` і, у разі проблеми, запускає PyInstaller без параметра `--icon`, щоб збірка не переривалась.
+- Ключі `--collect-all pandas --collect-all numpy --collect-submodules rapidfuzz` у команді PyInstaller гарантують включення всіх залежностей (`pandas`, `numpy`, `rapidfuzz`) у зібраний `.exe`, щоб уникнути помилок на кшталт «Unable to import required dependencies: numpy».
 - Переконайтесь, що `.venv` активовано й встановлено всі залежності, перш ніж викликати PyInstaller. Команда `pip install --upgrade pip` у наведених інструкціях допомагає уникнути збоїв через застарілий `pip`.
 - Для роботи PyInstaller на Windows може знадобитися встановлений Microsoft Visual C++ Redistributable (зазвичай уже присутній у системі).
 
 ## Усунення типових проблем
 
 - **Помилка читання Excel**: переконайтесь, що файл не відкритий в іншій програмі, та що встановлено `openpyxl` із `requirements.txt`.
+- **Помилка `Unable to import required dependencies: numpy` під час запуску `.exe`**: оновіть віртуальне середовище (`pip install --upgrade pip`) і перевстановіть залежності з `requirements.txt`. Під час збірки використовуйте команду PyInstaller з прапорцями `--collect-all pandas --collect-all numpy --collect-submodules rapidfuzz` (вона також у `build.bat`).
 - **Помилка доступу до лог-файлу**: якщо `matcher.log` зайнятий іншим процесом, закрийте програми, що могли його відкрити, або видаліть файл — він буде створений повторно.
 - **Відсутність колонок при імпорті**: застосунок покаже діалог мапінгу. Перевірте, чи обрано правильні колонки для `name`, `brand`, `model`, `film_type` тощо.
 

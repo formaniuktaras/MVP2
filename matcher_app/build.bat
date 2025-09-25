@@ -15,5 +15,6 @@ IF %ERRORLEVEL% EQU 0 (
     echo Попередження: icon.ico має некоректний формат. PyInstaller використає стандартну іконку.
     echo Замініть icon.ico на валідний ICO-файл, щоб мати власну іконку.
 )
-pyinstaller --noconfirm --clean --onefile --windowed --name "MatcherApp" %ICON_ARG% main.py
+SET "PYI_ARGS=--noconfirm --clean --onefile --windowed --name MatcherApp --collect-all pandas --collect-all numpy --collect-submodules rapidfuzz"
+pyinstaller %PYI_ARGS% %ICON_ARG% main.py
 ENDLOCAL
